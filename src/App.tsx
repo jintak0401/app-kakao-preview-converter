@@ -1,69 +1,11 @@
 import { AlimtalkPreview } from '@channel-io/shared-components'
 import { useState, useEffect } from 'react'
-
-interface AlimtalkProps {
-  avatarInfo: {
-    name: string
-    avatarUrl: string
-  }
-  alimtalkHeader: string
-  alimtalkTemplateContent: string
-  alimtalkTemplateContentPlaceholder: string
-  extraDescriptor: {
-    text: string
-    placeholder: string
-  }
-  advertisementDescriptor: {
-    text: string
-  }
-  titleDescriptor: {
-    text: string
-    placeholder: string
-  }
-  subtitleDescriptor: {
-    text: string
-    placeholder: string
-  }
-  imageDescriptor: {
-    mediaUrl: string
-  }
-  buttonPlaceholder: string
-  buttons: any[]
-}
-
-const defaultProps: AlimtalkProps = {
-  avatarInfo: {
-    name: '발신 프로필',
-    avatarUrl: '',
-  },
-  alimtalkHeader: '알림톡 도착',
-  alimtalkTemplateContent:
-    '안녕하세요 이것은 본문입니다. #{본문변수}. 안녕히 가십시오',
-  alimtalkTemplateContentPlaceholder: '고객에게 보여질 메시지를 적어주세요',
-  extraDescriptor: {
-    text: '이것은 부가정보입니다.',
-    placeholder: '부가정보를 적어주세요',
-  },
-  advertisementDescriptor: {
-    text: '채널 추가하고 이 채널의 마케팅 메시지 등을 카카오톡으로 받기',
-  },
-  titleDescriptor: {
-    text: '',
-    placeholder: '제목',
-  },
-  subtitleDescriptor: {
-    text: '',
-    placeholder: '부제목',
-  },
-  imageDescriptor: {
-    mediaUrl: '{img_url}',
-  },
-  buttonPlaceholder: '버튼 이름을 작성해주세요',
-  buttons: [],
-}
+import InfoTalkTemplate from './models/InfoTalkTemplate'
 
 function App() {
-  const [props, setProps] = useState<AlimtalkProps>(defaultProps)
+  const [props, setProps] = useState<InfoTalkTemplate.Entity>(
+    InfoTalkTemplate.helper.createEntity()
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [propsLoadSuccess, setPropsLoadSuccess] = useState(false)
 
@@ -78,7 +20,7 @@ function App() {
         if (response.ok) {
           const data = await response.json()
           console.log('✅ props.json 데이터를 성공적으로 로드했습니다:', data)
-          setProps(data)
+          setProps(InfoTalkTemplate.adapter.fromCustomPayloadDTO(data))
           setPropsLoadSuccess(true)
         } else {
           console.warn(
@@ -124,7 +66,12 @@ function App() {
       data-props-loaded="true"
       data-props-success={propsLoadSuccess ? 'true' : 'false'}
     >
-      <AlimtalkPreview {...props} />
+      <AlimtalkPreview
+        {...InfoTalkTemplate.method.toAlimtalkPreviewProps(props, {
+          profileName: '카카오 프로필명',
+          variablesMap: props.variables,
+        })}
+      />
     </div>
   )
 }
