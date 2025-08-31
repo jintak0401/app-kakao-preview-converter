@@ -10,6 +10,7 @@ import {
   InfoTalkTemplateCustomPayloadDTO,
   InfoTalkTemplateResponseDTO,
 } from './dto'
+import { joinPreviewContent } from '../utils'
 
 namespace InfoTalkTemplateAdapter {
   const getComponentEntities = (components: ComponentBlock.ResponseDTO[]) => {
@@ -92,6 +93,22 @@ namespace InfoTalkTemplateAdapter {
       content,
       variables,
     })
+  }
+
+  export const toPreviewContent = (entity: InfoTalkTemplateEntity) => {
+    const previewContent = joinPreviewContent(
+      Emphasize.adapter.toPreviewContent(entity.emphasize),
+      Content.adapter.toPreviewContent(entity.content),
+      TemplateButtonList.adapter.toPreviewContent(entity.buttonList)
+    )
+
+    const replaceVariables = (text: string): string => {
+      return MessageVariableMap.method.replaceVariables(entity.variables, {
+        text,
+      })
+    }
+
+    return replaceVariables(previewContent)
   }
 }
 

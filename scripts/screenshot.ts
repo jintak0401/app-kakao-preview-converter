@@ -2,6 +2,15 @@ import puppeteer, { type Browser } from 'puppeteer'
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs/promises'
+import InfoTalkTemplate from '../src/models/InfoTalkTemplate'
+
+// 미디어 엔드포인트는 항상 동일
+const MEDIA_END_POINT = 'https://media.exp.channel.io/cht/v1'
+
+interface UploadConfig {
+  token: string
+  channelId: string
+}
 
 interface ScreenshotOptions {
   output?: string
@@ -28,8 +37,138 @@ interface BatchResult {
   timestamp: string
 }
 
+interface ApiUploadResult {
+  success: boolean
+  response?: any
+  error?: string
+}
+
 class ScreenshotCLI {
   private viteProcess: ChildProcess | null = null
+
+  private generateContent(inputData: any): string {
+    try {
+      // InfoTalkTemplate adapter를 사용해서 content 생성
+      const entity = InfoTalkTemplate.adapter.fromCustomPayloadDTO(inputData)
+      return InfoTalkTemplate.adapter.toPreviewContent(entity)
+    } catch (error) {
+      console.warn(`⚠️ content 생성 실패:`, error)
+
+      // fallback: 간단한 content 생성
+      try {
+        if (inputData?.data?.component?.components) {
+          const components = inputData.data.component.components
+          const mainBodyComponent = components.find(
+            (c: any) => c.type === 'mainBody'
+          )
+          if (mainBodyComponent?.properties?.message) {
+            return mainBodyComponent.properties.message
+          }
+        }
+      } catch (fallbackError) {
+        console.warn('⚠️ fallback content 생성도 실패:', fallbackError)
+      }
+
+      return '' // 실패 시 빈 문자열 반환
+    }
+  }
+
+  private async loadUploadConfig({
+    configPath,
+  }: {
+    configPath: string
+  }): Promise<UploadConfig> {
+    try {
+      const absoluteConfigPath = path.resolve(process.cwd(), configPath)
+      console.log(`📄 업로드 설정 파일을 로드합니다: ${configPath}`)
+
+      const configData = await fs.readFile(absoluteConfigPath, 'utf-8')
+      const config = JSON.parse(configData) as UploadConfig
+
+      // 필수 필드 검증
+      if (!config.token || !config.channelId) {
+        throw new Error('config 파일에 token과 channelId가 모두 필요합니다')
+      }
+
+      console.log(`✅ 업로드 설정 로드 완료 (channelId: ${config.channelId})`)
+      return config
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('ENOENT')) {
+          throw new Error(`config 파일을 찾을 수 없습니다: ${configPath}`)
+        } else if (error.name === 'SyntaxError') {
+          throw new Error(
+            `config 파일의 JSON 형식이 잘못되었습니다: ${configPath}`
+          )
+        }
+      }
+      throw error
+    }
+  }
+
+  private async uploadImageToAPI({
+    imageBuffer,
+    fileName,
+    token,
+    channelId,
+  }: {
+    imageBuffer: Buffer
+    fileName: string
+    token: string
+    channelId: string
+  }): Promise<ApiUploadResult> {
+    try {
+      console.log(`📤 ${fileName}을 API로 업로드 중...`)
+
+      // Buffer를 File 객체로 변환
+      const file = new File([imageBuffer], fileName, {
+        type: 'image/png',
+      })
+
+      const url = `${MEDIA_END_POINT}/app/channels/${channelId}/shared/app-prebuilt-snapshot/file/${encodeURIComponent(file.name)}`
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: file as any, // File 객체를 body로 전송
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(
+          `API 요청 실패: ${response.status} ${response.statusText} - ${errorText}`
+        )
+      }
+
+      const responseData = await response.json()
+
+      // bucket 필드가 있을 때만 성공으로 취급
+      if (!responseData.bucket) {
+        throw new Error(
+          `API 응답에 bucket 필드가 없습니다: ${JSON.stringify(responseData)}`
+        )
+      }
+
+      console.log(`✅ ${fileName} 업로드 성공`)
+
+      return {
+        success: true,
+        response: responseData,
+      }
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : '알 수 없는 오류'
+      console.error(`❌ ${fileName} 업로드 실패: ${errorMsg}`)
+
+      return {
+        success: false,
+        error: errorMsg,
+      }
+    }
+  }
 
   private async findJsonFiles({
     inputDir,
@@ -87,7 +226,7 @@ class ScreenshotCLI {
         JSON.parse(inputData) // 유효성 검사
 
         const baseName = path.basename(inputPath, '.json')
-        const outputPath = path.join(absoluteOutputDir, `${baseName}.png`)
+        const outputPath = path.join(absoluteOutputDir, `${baseName}.json`)
 
         jobs.push({
           inputPath,
@@ -221,14 +360,12 @@ class ScreenshotCLI {
   private async takeScreenshotWithBrowser({
     browser,
     port,
-    output,
     jobName = 'screenshot',
   }: {
     browser: Browser
     port: number
-    output: string
     jobName?: string
-  }): Promise<void> {
+  }): Promise<Buffer> {
     const page = await browser.newPage()
 
     try {
@@ -276,14 +413,13 @@ class ScreenshotCLI {
       }
 
       console.log(`📸 [${jobName}] #target 엘리먼트 스크린샷을 찍습니다...`)
-      await targetElement.screenshot({
-        path: output as `${string}.png`,
+      const screenshotBuffer = (await targetElement.screenshot({
         type: 'png',
-      })
+      })) as Buffer
 
-      console.log(
-        `✅ [${jobName}] 스크린샷 저장 완료: ${path.basename(output)}`
-      )
+      console.log(`✅ [${jobName}] 스크린샷 생성 완료`)
+
+      return screenshotBuffer
     } finally {
       await page.close()
     }
@@ -291,10 +427,16 @@ class ScreenshotCLI {
 
   private async takeScreenshot({
     port,
-    output = 'screenshot.png',
+    output = 'result.json',
+    uploadConfig,
+    fileName = 'screenshot.png',
+    inputData = null,
   }: {
     port: number
     output: string
+    uploadConfig: UploadConfig
+    fileName?: string
+    inputData?: any
     width?: number
     height?: number
     waitTime?: number
@@ -305,11 +447,35 @@ class ScreenshotCLI {
     })
 
     try {
-      await this.takeScreenshotWithBrowser({
+      const screenshotBuffer = await this.takeScreenshotWithBrowser({
         browser,
         port,
-        output,
       })
+
+      // API로 업로드
+      const uploadResult = await this.uploadImageToAPI({
+        imageBuffer: screenshotBuffer,
+        fileName,
+        token: uploadConfig.token,
+        channelId: uploadConfig.channelId,
+      })
+
+      // content 생성
+      const content = inputData ? this.generateContent(inputData) : ''
+
+      // 결과를 JSON으로 저장
+      const resultData = {
+        success: uploadResult.success,
+        fileName,
+        timestamp: new Date().toISOString(),
+        ...(uploadResult.success
+          ? { image: uploadResult.response }
+          : { error: uploadResult.error }),
+        content,
+      }
+
+      await fs.writeFile(output, JSON.stringify(resultData, null, 2), 'utf-8')
+      console.log(`📄 API 응답을 ${output}에 저장했습니다`)
     } finally {
       await browser.close()
     }
@@ -319,10 +485,12 @@ class ScreenshotCLI {
     jobs,
     port,
     initialFailedFiles = [],
+    uploadConfig,
   }: {
     jobs: BatchJob[]
     port: number
     initialFailedFiles?: Array<{ fileName: string; errorMessage: string }>
+    uploadConfig: UploadConfig
   }): Promise<BatchResult> {
     const browser = await puppeteer.launch({
       headless: true,
@@ -361,12 +529,42 @@ class ScreenshotCLI {
           await new Promise((resolve) => setTimeout(resolve, 300))
 
           // 스크린샷 촬영
-          await this.takeScreenshotWithBrowser({
+          const screenshotBuffer = await this.takeScreenshotWithBrowser({
             browser,
             port,
-            output: job.outputPath,
             jobName,
           })
+
+          // API로 업로드
+          const fileName = `${jobName}.png`
+          const uploadResult = await this.uploadImageToAPI({
+            imageBuffer: screenshotBuffer,
+            fileName,
+            token: uploadConfig.token,
+            channelId: uploadConfig.channelId,
+          })
+
+          // content 생성
+          const content = this.generateContent(job.inputData)
+
+          // 결과를 JSON으로 저장
+          const resultData = {
+            success: uploadResult.success,
+            fileName,
+            inputFile: `${jobName}.json`,
+            timestamp: new Date().toISOString(),
+            ...(uploadResult.success
+              ? { image: uploadResult.response }
+              : { error: uploadResult.error }),
+            content,
+          }
+
+          await fs.writeFile(
+            job.outputPath,
+            JSON.stringify(resultData, null, 2),
+            'utf-8'
+          )
+          console.log(`📄 [${jobName}] API 응답을 저장했습니다`)
 
           result.success++
           console.log(`✅ [${jobName}] 처리 완료`)
@@ -405,13 +603,18 @@ class ScreenshotCLI {
   }
 
   async run({
-    output = 'screenshot.png',
+    output = 'result.json',
     port = 5173,
     input,
     batch = false,
     inputDir = '.',
   }: ScreenshotOptions = {}): Promise<void> {
     try {
+      // 업로드 설정 로드 (항상 upload-config.json 사용)
+      const uploadConfig = await this.loadUploadConfig({
+        configPath: 'upload-config.json',
+      })
+
       // 서버가 이미 실행 중인지 확인
       try {
         await fetch(`http://localhost:${port}`)
@@ -437,6 +640,7 @@ class ScreenshotCLI {
           jobs,
           port,
           initialFailedFiles: invalidFiles,
+          uploadConfig,
         })
 
         if (batchResult.failed > 0) {
@@ -448,13 +652,19 @@ class ScreenshotCLI {
         // 단일 모드
         const outputPath = path.resolve(process.cwd(), output)
 
+        let inputData = null
         if (input) {
           await this.copyInputToPublic({ inputPath: input })
+          // inputData도 읽어서 전달
+          const inputContent = await fs.readFile(input, 'utf-8')
+          inputData = JSON.parse(inputContent)
         }
 
         await this.takeScreenshot({
           port,
           output: outputPath,
+          uploadConfig,
+          inputData,
         })
       }
     } catch (error) {
@@ -531,12 +741,13 @@ async function main(): Promise<void> {
           i++
         }
         break
+
       case '--help':
         console.log(`
 사용법: npm run screenshot [옵션]
 
 기본 옵션:
-  --output, -o <파일명>    출력 파일명 (기본값: screenshot.png)
+  --output, -o <파일명>    출력 파일명 (기본값: result.json)
   --input, -i <파일명>     입력 JSON 파일 (AlimtalkPreview props)
   --port, -p <포트>        개발 서버 포트 (기본값: 5173)
   --width, -w <너비>       화면 너비 (기본값: 375)
@@ -552,15 +763,20 @@ async function main(): Promise<void> {
 
 단일 처리 예제:
   npm run screenshot
-  npm run screenshot -- --input input.json --output preview.png
-  npm run screenshot -- --input custom-props.json
+  npm run screenshot -- --input input.json --output result.json
 
 배치 처리 예제:
-  npm run screenshot -- --batch
-  npm run screenshot -- --batch --input-dir ./json-files
   npm run screenshot -- --batch --input-dir ./templates
 
-💡 배치 모드에서는 screenshots/ 폴더에 각 JSON 파일명.png로 순차 저장됩니다.
+💡 항상 upload-config.json 파일에서 설정을 읽어 API로 업로드합니다.
+💡 모든 결과는 JSON 파일로 저장됩니다.
+💡 upload-config.json 파일에는 token과 channelId를 설정해야 합니다.
+
+upload-config.json 예제:
+{
+  "token": "your-access-token-here",
+  "channelId": "your-channel-id-here"
+}
         `)
         process.exit(0)
     }
