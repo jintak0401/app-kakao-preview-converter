@@ -15,8 +15,8 @@ namespace EmphasizeGuard {
 
   export const isImage = (
     dto: unknown
-  ): dto is ComponentBlock.Entity & { type: 'image' } => {
-    return ComponentBlock.guard.isOfType(dto, 'image')
+  ): dto is ComponentBlock.Entity & { type: 'templateImage' } => {
+    return ComponentBlock.guard.isOfType(dto, 'templateImage')
   }
 
   export const isEmphasize = (

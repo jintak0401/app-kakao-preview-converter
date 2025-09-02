@@ -68,7 +68,7 @@ function App() {
     >
       <AlimtalkPreview
         {...InfoTalkTemplate.method.toAlimtalkPreviewProps(props, {
-          profileName: '카카오 프로필명',
+          profileName: '발신 프로필',
           variablesMap: props.variables,
         })}
       />

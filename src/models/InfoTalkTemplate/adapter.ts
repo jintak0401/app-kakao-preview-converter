@@ -13,11 +13,19 @@ import {
 import { joinPreviewContent } from '../utils'
 
 namespace InfoTalkTemplateAdapter {
-  const getComponentEntities = (components: ComponentBlock.ResponseDTO[]) => {
+  const getComponentEntities = ({
+    components,
+    templateImageName = '',
+  }: {
+    components: ComponentBlock.ResponseDTO[]
+    templateImageName?: string
+  }) => {
     const _components = components.map(ComponentBlock.adapter.fromResponseDTO)
 
     const emphasizeComponents = _components.filter(Emphasize.guard.isEmphasize)
-    const emphasize = Emphasize.adapter.fromResponseDTO(emphasizeComponents)
+    const emphasize = Emphasize.adapter.fromResponseDTO(emphasizeComponents, {
+      imageName: templateImageName,
+    })
 
     const buttonListComponent = _components.find(
       ComponentBlock.guard.isButtonList
@@ -45,7 +53,10 @@ namespace InfoTalkTemplateAdapter {
       component: { components },
     } = dto
 
-    const { emphasize, buttonList, content } = getComponentEntities(components)
+    const { emphasize, buttonList, content } = getComponentEntities({
+      components,
+      templateImageName: templateImage?.name,
+    })
 
     const variables = MessageVariableMap.adapter.fromVariableStrings(
       InfoTalkTemplateHelper.getVariables({
@@ -81,7 +92,9 @@ namespace InfoTalkTemplateAdapter {
       paramMapper,
     } = dto
 
-    const { emphasize, buttonList, content } = getComponentEntities(components)
+    const { emphasize, buttonList, content } = getComponentEntities({
+      components,
+    })
 
     const variables = MessageVariableMap.adapter.fromResponseDTO(paramMapper)
 
@@ -95,7 +108,7 @@ namespace InfoTalkTemplateAdapter {
     })
   }
 
-  export const toPreviewContent = (entity: InfoTalkTemplateEntity) => {
+  export const toPreviewContent = (entity: InfoTalkTemplateEntity): string => {
     const previewContent = joinPreviewContent(
       Emphasize.adapter.toPreviewContent(entity.emphasize),
       Content.adapter.toPreviewContent(entity.content),

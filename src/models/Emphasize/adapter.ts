@@ -1,5 +1,3 @@
-import ComponentBlock from '@/models/ComponentBlock'
-import { assert } from '@/utils/Assert'
 import { joinPreviewContent } from '@/models/utils'
 import EmphasizeGuard from './guard'
 import EmphasizeHelper from './helper'
@@ -9,23 +7,21 @@ import EmphasizeConst from './const'
 
 namespace EmphasizeAdapter {
   export const fromResponseDTO = (
-    dto: EmphasizeResponseDTO
+    dto: EmphasizeResponseDTO,
+    { imageName = '' }: { imageName?: string } = {}
   ): EmphasizeEntity => {
     let result: EmphasizeEntity = EmphasizeHelper.createEntity()
 
     dto.forEach((component) => {
       if (EmphasizeGuard.isSubTitle(component)) {
-        assert(ComponentBlock.guard.hasMessage(component))
-        result.subtitle = component.properties.message
+        result.subtitle = component.properties?.message || ''
         result.type = 'text'
       } else if (EmphasizeGuard.isTitle(component)) {
-        assert(ComponentBlock.guard.hasMessage(component))
-        result.title = component.properties.message
+        result.title = component.properties?.message || ''
         result.type = 'text'
       } else if (EmphasizeGuard.isImage(component)) {
-        assert(ComponentBlock.guard.withProperties(component, ['imgUrl']))
-        result.imageUrl = component.properties.imgUrl || ''
-        result.imageName = component.properties.imgName || ''
+        result.imageUrl = component.properties?.templateImageKakaoUrl || ''
+        result.imageName = imageName
         result.type = 'image'
       }
     })
@@ -57,10 +53,9 @@ namespace EmphasizeAdapter {
   ): EmphasizeRequestDTO => {
     return [
       {
-        type: 'image',
+        type: 'templateImage',
         properties: {
-          imgUrl: entity.imageUrl,
-          imgName: entity.imageName,
+          templateImageKakaoUrl: entity.imageUrl,
         },
       },
     ]

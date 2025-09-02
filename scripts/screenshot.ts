@@ -201,7 +201,7 @@ class ScreenshotCLI {
 
   private async prepareBatchJobs({
     jsonFiles,
-    outputDir = 'screenshots',
+    outputDir = 'results',
   }: {
     jsonFiles: string[]
     outputDir?: string
