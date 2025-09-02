@@ -86,11 +86,10 @@ class ScreenshotCLI {
       const config = JSON.parse(configData) as UploadConfig
 
       // 필수 필드 검증
-      if (!config.token || !config.channelId) {
-        throw new Error('config 파일에 token과 channelId가 모두 필요합니다')
+      if (!config.token) {
+        throw new Error('config 파일에 token이 필요합니다')
       }
 
-      console.log(`✅ 업로드 설정 로드 완료 (channelId: ${config.channelId})`)
       return config
     } catch (error) {
       if (error instanceof Error) {
@@ -115,9 +114,13 @@ class ScreenshotCLI {
     imageBuffer: Buffer
     fileName: string
     token: string
-    channelId: string
+    channelId?: string
   }): Promise<ApiUploadResult> {
     try {
+      if (channelId === undefined) {
+        throw new Error('channelId가 필요합니다')
+      }
+
       console.log(`📤 ${fileName}을 API로 업로드 중...`)
 
       // Buffer를 File 객체로 변환
@@ -457,7 +460,7 @@ class ScreenshotCLI {
         imageBuffer: screenshotBuffer,
         fileName,
         token: uploadConfig.token,
-        channelId: uploadConfig.channelId,
+        channelId: inputData.channelId,
       })
 
       // content 생성
@@ -541,7 +544,7 @@ class ScreenshotCLI {
             imageBuffer: screenshotBuffer,
             fileName,
             token: uploadConfig.token,
-            channelId: uploadConfig.channelId,
+            channelId: job.inputData.channelId,
           })
 
           // content 생성
@@ -566,8 +569,18 @@ class ScreenshotCLI {
           )
           console.log(`📄 [${jobName}] API 응답을 저장했습니다`)
 
-          result.success++
-          console.log(`✅ [${jobName}] 처리 완료`)
+          // API 업로드 성공 여부에 따라 카운트
+          if (uploadResult.success) {
+            result.success++
+            console.log(`✅ [${jobName}] 처리 완료`)
+          } else {
+            result.failed++
+            result.failedFiles.push({
+              fileName: jobName + '.json',
+              errorMessage: uploadResult.error || 'API 업로드 실패',
+            })
+            console.log(`❌ [${jobName}] API 업로드 실패`)
+          }
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : '알 수 없는 오류'

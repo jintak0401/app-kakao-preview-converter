@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react'
 import InfoTalkTemplate from './models/InfoTalkTemplate'
 
 function App() {
-  const [props, setProps] = useState<InfoTalkTemplate.Entity>(
-    InfoTalkTemplate.helper.createEntity()
-  )
+  const [props, setProps] = useState<
+    InfoTalkTemplate.Entity & { senderName?: string }
+  >(InfoTalkTemplate.helper.createEntity())
   const [isLoading, setIsLoading] = useState(true)
   const [propsLoadSuccess, setPropsLoadSuccess] = useState(false)
 
@@ -20,7 +20,10 @@ function App() {
         if (response.ok) {
           const data = await response.json()
           console.log('✅ props.json 데이터를 성공적으로 로드했습니다:', data)
-          setProps(InfoTalkTemplate.adapter.fromCustomPayloadDTO(data))
+          setProps({
+            ...InfoTalkTemplate.adapter.fromCustomPayloadDTO(data),
+            senderName: data.senderName,
+          })
           setPropsLoadSuccess(true)
         } else {
           console.warn(
@@ -68,7 +71,7 @@ function App() {
     >
       <AlimtalkPreview
         {...InfoTalkTemplate.method.toAlimtalkPreviewProps(props, {
-          profileName: '발신 프로필',
+          profileName: props.senderName || '발신 프로필',
           variablesMap: props.variables,
         })}
       />
