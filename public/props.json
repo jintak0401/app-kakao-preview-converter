@@ -1,4 +1,6 @@
 {
+  "senderName": "3번 템플릿",
+  "channelId": "1",
   "data": {
     "messageType": "alimTalk",
     "templateCode": "템플릿 코드1",
