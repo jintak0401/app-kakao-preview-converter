@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "fileName": "template2.png",
+  "inputFile": "template2.json",
+  "timestamp": "2025-09-02T08:49:53.099Z",
+  "image": {
+    "bucket": "bin.exp.channel.io",
+    "key": "pri-file/1/shared/app-prebuilt-snapshot/68b6afb1095524795bcb/template2",
+    "id": "68b6afb1095524795bcb",
+    "type": "image",
+    "name": "template2.png",
+    "size": 36278,
+    "contentType": "image/png",
+    "channelId": "1",
+    "sharedDomain": "appPrebuiltSnapshot",
+    "animated": false,
+    "width": 820,
+    "height": 822
+  },
+  "content": "이것은 제목입니다.\n\n안녕하세요 이것은 본문입니다. \n테스트(test) 입니다. fallback\n\n[채널 추가]\n[테스트 버튼]"
+}

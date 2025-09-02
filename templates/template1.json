@@ -1,0 +1,19 @@
+{
+  "data": {
+    "messageType": "alimTalk",
+    "templateCode": "템플릿 코드1",
+    "templateName": "템플릿 이름1",
+    "component": {
+      "type": "composite",
+      "components": [
+        {
+          "type": "mainBody",
+          "properties": {
+            "message": "test"
+          }
+        }
+      ]
+    }
+  },
+  "paramMapper": {}
+}

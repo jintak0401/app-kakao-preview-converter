@@ -1,69 +1,39 @@
-# React + TypeScript + Vite
+# 사용법
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 0. config 설정
 
-Currently, two official plugins are available:
+`upload-config.json` 파일에 다음 정보를 설정합니다:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `token`: API 접근을 위한 인증 토큰
+- `channelId`: 대상 채널 ID
 
-## Expanding the ESLint configuration
+## 1. 템플릿 넣기
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+`/templates` 폴더에 CustomPayload 형식에 맞게 템플릿들을 넣습니다.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 2. Screenshot 스크립트 실행
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+### 2-1. 개발 서버 실행
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+개발 서버가 실행되면 포트 번호를 확인합니다 (일반적으로 5173).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 2-2. Screenshot 스크립트 실행
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run screenshot -- --batch --input-dir templates --port {{포트번호}}
 ```
+
+**예시:**
+
+```bash
+npm run screenshot -- --batch --input-dir templates --port 5173
+```
+
+### 2-3. 결과 확인
+
+- `results/` 폴더에서 생성된 스크린샷 결과를 확인할 수 있습니다
+- 실패한 파일들의 상세 정보는 `result.json` 파일에서 확인할 수 있습니다
